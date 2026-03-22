@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 OCR_BACKENDS = ("auto", "tesseract", "rapidocr")
@@ -105,3 +107,76 @@ def build_extraction_config(
         config.debug_dir = Path(debug_dir)
 
     return config
+
+
+def load_config_file(config_path: str | Path) -> dict[str, Any]:
+    path = Path(config_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Config file does not exist: {path}")
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Config file is not valid JSON: {path}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError(f"Config file must contain a JSON object: {path}")
+
+    allowed_keys = {
+        "profile",
+        "ocr_backend",
+        "render_scale",
+        "threshold",
+        "min_confidence",
+        "row_y_tolerance",
+        "column_x_tolerance",
+        "tesseract_psm",
+        "debug_dir",
+    }
+    unknown_keys = sorted(set(payload) - allowed_keys)
+    if unknown_keys:
+        raise ValueError(f"Unsupported config keys in {path}: {', '.join(unknown_keys)}")
+
+    return payload
+
+
+def build_extraction_config_from_sources(
+    *,
+    config_path: str | Path | None = None,
+    profile: str | None = None,
+    ocr_backend: str | None = None,
+    render_scale: float | None = None,
+    threshold: int | None = None,
+    min_confidence: float | None = None,
+    row_y_tolerance: float | None = None,
+    column_x_tolerance: float | None = None,
+    tesseract_psm: int | None = None,
+    debug_dir: str | Path | None = None,
+) -> ExtractionConfig:
+    file_config = load_config_file(config_path) if config_path is not None else {}
+
+    resolved_profile = profile or str(file_config.get("profile", "table_scan"))
+
+    return build_extraction_config(
+        profile=resolved_profile,
+        ocr_backend=ocr_backend if ocr_backend is not None else file_config.get("ocr_backend"),
+        render_scale=render_scale if render_scale is not None else file_config.get("render_scale"),
+        threshold=threshold if threshold is not None else file_config.get("threshold"),
+        min_confidence=(
+            min_confidence if min_confidence is not None else file_config.get("min_confidence")
+        ),
+        row_y_tolerance=(
+            row_y_tolerance
+            if row_y_tolerance is not None
+            else file_config.get("row_y_tolerance")
+        ),
+        column_x_tolerance=(
+            column_x_tolerance
+            if column_x_tolerance is not None
+            else file_config.get("column_x_tolerance")
+        ),
+        tesseract_psm=(
+            tesseract_psm if tesseract_psm is not None else file_config.get("tesseract_psm")
+        ),
+        debug_dir=debug_dir if debug_dir is not None else file_config.get("debug_dir"),
+    )

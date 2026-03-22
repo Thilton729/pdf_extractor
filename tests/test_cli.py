@@ -14,8 +14,8 @@ class CliTests(unittest.TestCase):
     def test_parser_defaults_to_csv(self) -> None:
         args = build_parser().parse_args(["extract", "input.pdf", "--output", "out.csv"])
         self.assertEqual(args.format, "csv")
-        self.assertEqual(args.profile, "table_scan")
-        self.assertEqual(args.ocr_backend, "auto")
+        self.assertIsNone(args.profile)
+        self.assertIsNone(args.ocr_backend)
 
     def test_main_returns_zero_on_success(self) -> None:
         document = ExtractedDocument(
@@ -72,6 +72,33 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as context:
             main(["extract", "missing.pdf", "--output", "out.csv"])
         self.assertEqual(context.exception.code, 1)
+
+    def test_main_loads_config_file_and_allows_cli_override(self) -> None:
+        document = ExtractedDocument(source_path="input.pdf", tables=[])
+        with TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / "out.csv"
+            config_path = Path(temp_dir) / "config.json"
+            config_path.write_text(
+                '{"profile":"directory_scan","ocr_backend":"rapidocr","threshold":165}',
+                encoding="utf-8",
+            )
+            with patch("pdf_extractor.cli.extract_tables", return_value=document) as extract_mock:
+                main(
+                    [
+                        "extract",
+                        "input.pdf",
+                        "--output",
+                        str(output_path),
+                        "--config",
+                        str(config_path),
+                        "--threshold",
+                        "190",
+                    ]
+                )
+        passed_config = extract_mock.call_args.kwargs["config"]
+        self.assertEqual(passed_config.profile, "directory_scan")
+        self.assertEqual(passed_config.ocr_backend, "rapidocr")
+        self.assertEqual(passed_config.threshold, 190)
 
 
 if __name__ == "__main__":

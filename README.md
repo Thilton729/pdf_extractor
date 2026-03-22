@@ -51,6 +51,31 @@ python -m pdf_extractor extract scanned.pdf \
   --debug-dir sample_output/debug
 ```
 
+Saved-config example:
+
+```json
+{
+  "profile": "table_scan",
+  "ocr_backend": "auto",
+  "render_scale": 3.0,
+  "threshold": 180,
+  "min_confidence": 0.25,
+  "row_y_tolerance": 18.0,
+  "column_x_tolerance": 28.0,
+  "tesseract_psm": 6
+}
+```
+
+Run with a config file:
+
+```bash
+python -m pdf_extractor extract scanned.pdf \
+  --config configs/table-scan.json \
+  --output sample_output/scanned.csv
+```
+
+CLI flags override config file values, so you can keep a reusable preset and tweak one or two settings per run.
+
 ### Profiles
 
 - `table_scan`: general-purpose starting point for scanned tables
@@ -60,6 +85,7 @@ python -m pdf_extractor extract scanned.pdf \
 ### Important tuning flags
 
 - `--ocr-backend {auto,tesseract,rapidocr}`
+- `--config`
 - `--render-scale`
 - `--threshold`
 - `--min-confidence`

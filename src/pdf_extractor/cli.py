@@ -5,7 +5,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .config import OCR_BACKENDS, OCR_PROFILES, build_extraction_config
+from .config import (
+    OCR_BACKENDS,
+    OCR_PROFILES,
+    build_extraction_config_from_sources,
+)
 from .constants import DEFAULT_EXPORT_FORMAT, SUPPORTED_FORMATS
 from .extractor import extract_tables
 from .exporters import export_table
@@ -35,14 +39,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Export format.",
     )
     extract_parser.add_argument(
+        "--config",
+        help="Optional JSON config file for OCR/layout tuning. CLI flags override file values.",
+    )
+    extract_parser.add_argument(
         "--profile",
-        default="table_scan",
         choices=OCR_PROFILES,
         help="OCR/layout tuning profile for scanned PDFs.",
     )
     extract_parser.add_argument(
         "--ocr-backend",
-        default="auto",
         choices=OCR_BACKENDS,
         help="OCR backend for scanned PDFs.",
     )
@@ -91,7 +97,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"Unsupported command: {args.command}")
 
     try:
-        config = build_extraction_config(
+        config = build_extraction_config_from_sources(
+            config_path=args.config,
             profile=args.profile,
             ocr_backend=args.ocr_backend,
             render_scale=args.render_scale,
