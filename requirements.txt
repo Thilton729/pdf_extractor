@@ -1,0 +1,2 @@
+pdfplumber>=0.11,<1.0
+rapidocr-onnxruntime>=1.2,<2.0
