@@ -1,0 +1,32 @@
+Description,Qty,Unit Price,Line Total
+Custom-machined bracket type B-001,2,$57.00,$114.00
+Custom-machined bracket type B-002,3,$69.00,$207.00
+Custom-machined bracket type B-003,4,$81.00,$324.00
+Custom-machined bracket type B-004,5,$93.00,$465.00
+Custom-machined bracket type B-005,6,$45.00,$270.00
+Custom-machined bracket type B-006,7,$57.00,$399.00
+Custom-machined bracket type B-007,1,$69.00,$69.00
+Custom-machined bracket type B-008,2,$81.00,$162.00
+Custom-machined bracket type B-009,3,$93.00,$279.00
+Custom-machined bracket type B-010,4,$45.00,$180.00
+Custom-machined bracket type B-011,5,$57.00,$285.00
+Custom-machined bracket type B-012,6,$69.00,$414.00
+Custom-machined bracket type B-013,7,$81.00,$567.00
+Custom-machined bracket type B-014,1,$93.00,$93.00
+Custom-machined bracket type B-015,2,$45.00,$90.00
+Custom-machined bracket type B-016,3,$57.00,$171.00
+Custom-machined bracket type B-017,4,$69.00,$276.00
+Custom-machined bracket type B-018,5,$81.00,$405.00
+Custom-machined bracket type B-019,6,$93.00,$558.00
+Custom-machined bracket type B-020,7,$45.00,$315.00
+Custom-machined bracket type B-021,1,$57.00,$57.00
+Custom-machined bracket type B-022,2,$69.00,$138.00
+Custom-machined bracket type B-023,3,$81.00,$243.00
+Custom-machined bracket type B-024,4,$93.00,$372.00
+Custom-machined bracket type B-025,5,$45.00,$225.00
+
+Subtotal,"$6,630.00"
+Discount,$130.00
+Sales Tax (6.5%),$422.50
+Shipping / Handling,$180.00
+Total Due,"$7,102.50"

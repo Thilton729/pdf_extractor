@@ -1,0 +1,9 @@
+Description,Qty,Unit Price,Line Total
+"Credit for returned gloves, lot G-221",12,$-18.50,$-222.00
+Credit for damaged sanitizer bottles,4,$-7.25,$-29.00
+
+Subtotal,$-251.00
+Discount,$0.00
+Tax Adjustment,$-19.45
+Shipping / Handling,$0.00
+Total Due,$-270.45

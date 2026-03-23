@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .config import (
     OCR_BACKENDS,
+    HEADER_STRATEGIES,
     OCR_PROFILES,
     build_extraction_config_from_sources,
 )
@@ -51,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--ocr-backend",
         choices=OCR_BACKENDS,
         help="OCR backend for scanned PDFs.",
+    )
+    extract_parser.add_argument(
+        "--header-strategy",
+        choices=HEADER_STRATEGIES,
+        help="Header handling for multi-page or repeated tables.",
     )
     extract_parser.add_argument(
         "--render-scale",
@@ -101,6 +107,7 @@ def main(argv: list[str] | None = None) -> int:
             config_path=args.config,
             profile=args.profile,
             ocr_backend=args.ocr_backend,
+            header_strategy=args.header_strategy,
             render_scale=args.render_scale,
             threshold=args.threshold,
             min_confidence=args.min_confidence,

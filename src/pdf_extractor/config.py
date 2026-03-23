@@ -10,12 +10,14 @@ from typing import Any
 
 OCR_BACKENDS = ("auto", "tesseract", "rapidocr")
 OCR_PROFILES = ("table_scan", "directory_scan", "form_scan")
+HEADER_STRATEGIES = ("auto", "page", "carry-forward")
 
 
 @dataclass(slots=True)
 class ExtractionConfig:
     profile: str = "table_scan"
     ocr_backend: str = "auto"
+    header_strategy: str = "auto"
     render_scale: float = 3.0
     threshold: int = 180
     min_confidence: float = 0.2
@@ -29,6 +31,7 @@ PROFILE_DEFAULTS: dict[str, ExtractionConfig] = {
     "table_scan": ExtractionConfig(
         profile="table_scan",
         ocr_backend="auto",
+        header_strategy="auto",
         render_scale=3.0,
         threshold=180,
         min_confidence=0.2,
@@ -39,6 +42,7 @@ PROFILE_DEFAULTS: dict[str, ExtractionConfig] = {
     "directory_scan": ExtractionConfig(
         profile="directory_scan",
         ocr_backend="auto",
+        header_strategy="auto",
         render_scale=3.0,
         threshold=175,
         min_confidence=0.2,
@@ -49,6 +53,7 @@ PROFILE_DEFAULTS: dict[str, ExtractionConfig] = {
     "form_scan": ExtractionConfig(
         profile="form_scan",
         ocr_backend="auto",
+        header_strategy="auto",
         render_scale=2.5,
         threshold=170,
         min_confidence=0.25,
@@ -63,6 +68,7 @@ def build_extraction_config(
     *,
     profile: str = "table_scan",
     ocr_backend: str | None = None,
+    header_strategy: str | None = None,
     render_scale: float | None = None,
     threshold: int | None = None,
     min_confidence: float | None = None,
@@ -78,6 +84,7 @@ def build_extraction_config(
     config = ExtractionConfig(
         profile=base.profile,
         ocr_backend=base.ocr_backend,
+        header_strategy=base.header_strategy,
         render_scale=base.render_scale,
         threshold=base.threshold,
         min_confidence=base.min_confidence,
@@ -91,6 +98,10 @@ def build_extraction_config(
         if ocr_backend not in OCR_BACKENDS:
             raise ValueError(f"Unsupported OCR backend: {ocr_backend}")
         config.ocr_backend = ocr_backend
+    if header_strategy is not None:
+        if header_strategy not in HEADER_STRATEGIES:
+            raise ValueError(f"Unsupported header strategy: {header_strategy}")
+        config.header_strategy = header_strategy
     if render_scale is not None:
         config.render_scale = render_scale
     if threshold is not None:
@@ -125,6 +136,7 @@ def load_config_file(config_path: str | Path) -> dict[str, Any]:
     allowed_keys = {
         "profile",
         "ocr_backend",
+        "header_strategy",
         "render_scale",
         "threshold",
         "min_confidence",
@@ -145,6 +157,7 @@ def build_extraction_config_from_sources(
     config_path: str | Path | None = None,
     profile: str | None = None,
     ocr_backend: str | None = None,
+    header_strategy: str | None = None,
     render_scale: float | None = None,
     threshold: int | None = None,
     min_confidence: float | None = None,
@@ -160,6 +173,11 @@ def build_extraction_config_from_sources(
     return build_extraction_config(
         profile=resolved_profile,
         ocr_backend=ocr_backend if ocr_backend is not None else file_config.get("ocr_backend"),
+        header_strategy=(
+            header_strategy
+            if header_strategy is not None
+            else file_config.get("header_strategy")
+        ),
         render_scale=render_scale if render_scale is not None else file_config.get("render_scale"),
         threshold=threshold if threshold is not None else file_config.get("threshold"),
         min_confidence=(

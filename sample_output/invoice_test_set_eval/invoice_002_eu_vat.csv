@@ -1,0 +1,9 @@
+Description,Qty,Unit Price,Line Total
+Fleet dashboard subscription - Q1,1,"€4,500.00","€4,500.00"
+Implementation workshop,2,€650.00,"€1,300.00"
+
+Subtotal,"€5,800.00"
+Discount,€300.00
+VAT (19%),"€1,045.00"
+Shipping / Handling,€0.00
+Total Due,"€6,545.00"

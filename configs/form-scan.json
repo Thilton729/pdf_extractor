@@ -1,0 +1,10 @@
+{
+  "profile": "form_scan",
+  "ocr_backend": "auto",
+  "render_scale": 2.5,
+  "threshold": 170,
+  "min_confidence": 0.25,
+  "row_y_tolerance": 14.0,
+  "column_x_tolerance": 22.0,
+  "tesseract_psm": 11
+}

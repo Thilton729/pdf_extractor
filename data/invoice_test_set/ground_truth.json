@@ -1,0 +1,436 @@
+[
+  {
+    "file": "invoice_001_standard_usd.pdf",
+    "invoice_no": "INV-2026-001",
+    "issue_date": "2026-02-14",
+    "due_date": "2026-03-16",
+    "currency": "USD",
+    "seller": {
+      "name": "Northwind Studio LLC",
+      "addr": [
+        "241 Market Street",
+        "Suite 500",
+        "San Francisco, CA 94105",
+        "United States"
+      ],
+      "tax_id": "US-94-8821934",
+      "email": "billing@northwindstudio.example"
+    },
+    "buyer": {
+      "name": "BluePeak Retail Inc.",
+      "addr": [
+        "Accounts Payable",
+        "88 Hudson Ave",
+        "Brooklyn, NY 11201",
+        "United States"
+      ]
+    },
+    "items": [
+      [
+        "UI Design Sprint - Feb 2026",
+        1,
+        "3,200.00",
+        "3,200.00"
+      ],
+      [
+        "Frontend implementation",
+        24,
+        "95.00",
+        "2,280.00"
+      ],
+      [
+        "QA and bug triage",
+        10,
+        "70.00",
+        "700.00"
+      ]
+    ],
+    "subtotal": "6,180.00",
+    "discount": "0.00",
+    "tax_label": "Sales Tax (8.625%)",
+    "tax": "532.03",
+    "shipping": "0.00",
+    "total": "6,712.03",
+    "po": "PO-8841",
+    "notes": "Please remit via ACH. Include invoice number in payment reference."
+  },
+  {
+    "file": "invoice_002_eu_vat.pdf",
+    "invoice_no": "EU-43877",
+    "issue_date": "2026-01-08",
+    "due_date": "2026-01-22",
+    "currency": "EUR",
+    "seller": {
+      "name": "Lumen Analytics GmbH",
+      "addr": [
+        "Karlstrasse 12",
+        "80333 Munich",
+        "Germany"
+      ],
+      "tax_id": "DE321445908",
+      "email": "rechnung@lumen-analytics.example"
+    },
+    "buyer": {
+      "name": "Verde Transit S.p.A.",
+      "addr": [
+        "Via Torino 18",
+        "20123 Milan",
+        "Italy"
+      ],
+      "vat_id": "IT99822310014"
+    },
+    "items": [
+      [
+        "Fleet dashboard subscription - Q1",
+        1,
+        "4,500.00",
+        "4,500.00"
+      ],
+      [
+        "Implementation workshop",
+        2,
+        "650.00",
+        "1,300.00"
+      ]
+    ],
+    "subtotal": "5,800.00",
+    "discount": "300.00",
+    "tax_label": "VAT (19%)",
+    "tax": "1,045.00",
+    "shipping": "0.00",
+    "total": "6,545.00",
+    "po": "VT-2026-114",
+    "notes": "Reverse-charge does not apply. Payment term: 14 days."
+  },
+  {
+    "file": "invoice_003_credit_note_style.pdf",
+    "invoice_no": "CN-1042",
+    "issue_date": "2026-03-01",
+    "due_date": "2026-03-01",
+    "currency": "USD",
+    "seller": {
+      "name": "Harbor Medical Supply Co.",
+      "addr": [
+        "1800 Harbor Blvd",
+        "Long Beach, CA 90802",
+        "United States"
+      ],
+      "tax_id": "US-83-1120091",
+      "email": "ar@harbormed.example"
+    },
+    "buyer": {
+      "name": "Redwood Family Clinic",
+      "addr": [
+        "400 Cedar Lane",
+        "Portland, OR 97205",
+        "United States"
+      ]
+    },
+    "items": [
+      [
+        "Credit for returned gloves, lot G-221",
+        12,
+        "-18.50",
+        "-222.00"
+      ],
+      [
+        "Credit for damaged sanitizer bottles",
+        4,
+        "-7.25",
+        "-29.00"
+      ]
+    ],
+    "subtotal": "-251.00",
+    "discount": "0.00",
+    "tax_label": "Tax Adjustment",
+    "tax": "-19.45",
+    "shipping": "0.00",
+    "total": "-270.45",
+    "po": "RMA-22018",
+    "notes": "Credit memo. Negative balance should be applied to next statement."
+  },
+  {
+    "file": "invoice_004_multiline_items.pdf",
+    "invoice_no": "APAC-9007",
+    "issue_date": "2025-12-19",
+    "due_date": "2026-01-18",
+    "currency": "SGD",
+    "seller": {
+      "name": "Meridian Cloud Pte. Ltd.",
+      "addr": [
+        "71 Robinson Road",
+        "#14-01",
+        "Singapore 068895"
+      ],
+      "tax_id": "GST M90377123W",
+      "email": "finance@meridiancloud.example"
+    },
+    "buyer": {
+      "name": "Kestrel BioLabs",
+      "addr": [
+        "12 Science Park Drive",
+        "Singapore 118225"
+      ]
+    },
+    "items": [
+      [
+        "Managed backup cluster with 30-day retention and cross-region replication for production datasets",
+        1,
+        "1,880.00",
+        "1,880.00"
+      ],
+      [
+        "Priority support plan including after-hours response coverage for regulated workloads",
+        1,
+        "720.00",
+        "720.00"
+      ],
+      [
+        "Object storage overage - 1.84 TB",
+        1840,
+        "0.12",
+        "220.80"
+      ]
+    ],
+    "subtotal": "2,820.80",
+    "discount": "120.80",
+    "tax_label": "GST (9%)",
+    "tax": "243.00",
+    "shipping": "0.00",
+    "total": "2,943.00",
+    "po": "KB-OPS-77",
+    "notes": "Bank transfer only. Statement reference: DEC-OPS-77."
+  },
+  {
+    "file": "invoice_005_multi_page.pdf",
+    "invoice_no": "INV-MP-2103",
+    "issue_date": "2026-02-28",
+    "due_date": "2026-03-30",
+    "currency": "USD",
+    "seller": {
+      "name": "Atlas Industrial Parts",
+      "addr": [
+        "5000 Foundry Way",
+        "Cleveland, OH 44114",
+        "United States"
+      ],
+      "tax_id": "US-27-7781200",
+      "email": "invoices@atlasparts.example"
+    },
+    "buyer": {
+      "name": "Sierra Fabrication Group",
+      "addr": [
+        "77 Forge Court",
+        "Phoenix, AZ 85004",
+        "United States"
+      ]
+    },
+    "items": [
+      [
+        "Custom-machined bracket type B-001",
+        2,
+        "57.00",
+        "114.00"
+      ],
+      [
+        "Custom-machined bracket type B-002",
+        3,
+        "69.00",
+        "207.00"
+      ],
+      [
+        "Custom-machined bracket type B-003",
+        4,
+        "81.00",
+        "324.00"
+      ],
+      [
+        "Custom-machined bracket type B-004",
+        5,
+        "93.00",
+        "465.00"
+      ],
+      [
+        "Custom-machined bracket type B-005",
+        6,
+        "45.00",
+        "270.00"
+      ],
+      [
+        "Custom-machined bracket type B-006",
+        7,
+        "57.00",
+        "399.00"
+      ],
+      [
+        "Custom-machined bracket type B-007",
+        1,
+        "69.00",
+        "69.00"
+      ],
+      [
+        "Custom-machined bracket type B-008",
+        2,
+        "81.00",
+        "162.00"
+      ],
+      [
+        "Custom-machined bracket type B-009",
+        3,
+        "93.00",
+        "279.00"
+      ],
+      [
+        "Custom-machined bracket type B-010",
+        4,
+        "45.00",
+        "180.00"
+      ],
+      [
+        "Custom-machined bracket type B-011",
+        5,
+        "57.00",
+        "285.00"
+      ],
+      [
+        "Custom-machined bracket type B-012",
+        6,
+        "69.00",
+        "414.00"
+      ],
+      [
+        "Custom-machined bracket type B-013",
+        7,
+        "81.00",
+        "567.00"
+      ],
+      [
+        "Custom-machined bracket type B-014",
+        1,
+        "93.00",
+        "93.00"
+      ],
+      [
+        "Custom-machined bracket type B-015",
+        2,
+        "45.00",
+        "90.00"
+      ],
+      [
+        "Custom-machined bracket type B-016",
+        3,
+        "57.00",
+        "171.00"
+      ],
+      [
+        "Custom-machined bracket type B-017",
+        4,
+        "69.00",
+        "276.00"
+      ],
+      [
+        "Custom-machined bracket type B-018",
+        5,
+        "81.00",
+        "405.00"
+      ],
+      [
+        "Custom-machined bracket type B-019",
+        6,
+        "93.00",
+        "558.00"
+      ],
+      [
+        "Custom-machined bracket type B-020",
+        7,
+        "45.00",
+        "315.00"
+      ],
+      [
+        "Custom-machined bracket type B-021",
+        1,
+        "57.00",
+        "57.00"
+      ],
+      [
+        "Custom-machined bracket type B-022",
+        2,
+        "69.00",
+        "138.00"
+      ],
+      [
+        "Custom-machined bracket type B-023",
+        3,
+        "81.00",
+        "243.00"
+      ],
+      [
+        "Custom-machined bracket type B-024",
+        4,
+        "93.00",
+        "372.00"
+      ],
+      [
+        "Custom-machined bracket type B-025",
+        5,
+        "45.00",
+        "225.00"
+      ]
+    ],
+    "subtotal": "6,630.00",
+    "discount": "130.00",
+    "tax_label": "Sales Tax (6.5%)",
+    "tax": "422.50",
+    "shipping": "180.00",
+    "total": "7,102.50",
+    "po": "SFG-55019",
+    "notes": "Partial shipments may be invoiced separately. Net 30."
+  },
+  {
+    "file": "invoice_006_no_tax_bank_details.pdf",
+    "invoice_no": "CONS-77-03",
+    "issue_date": "2026-03-10",
+    "due_date": "2026-03-17",
+    "currency": "GBP",
+    "seller": {
+      "name": "Juniper Advisory LLP",
+      "addr": [
+        "14 Finsbury Circus",
+        "London EC2M 7PY",
+        "United Kingdom"
+      ],
+      "tax_id": "N/A",
+      "email": "accounts@juniperadvisory.example"
+    },
+    "buyer": {
+      "name": "Oakmere Trustees Ltd",
+      "addr": [
+        "9 Garden Square",
+        "Bristol BS1 4QF",
+        "United Kingdom"
+      ]
+    },
+    "items": [
+      [
+        "Governance review and written recommendations",
+        1,
+        "2,100.00",
+        "2,100.00"
+      ],
+      [
+        "Board workshop facilitation",
+        1,
+        "850.00",
+        "850.00"
+      ]
+    ],
+    "subtotal": "2,950.00",
+    "discount": "0.00",
+    "tax_label": "Tax",
+    "tax": "0.00",
+    "shipping": "0.00",
+    "total": "2,950.00",
+    "po": "OTL-03-26",
+    "notes": "No VAT charged under small-business threshold. Sort code 20-44-51, Account 80449211."
+  }
+]

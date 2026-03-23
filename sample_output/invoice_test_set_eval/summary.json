@@ -1,0 +1,116 @@
+{
+  "config": {
+    "config_path": "configs/table-scan.json",
+    "header_strategy": "carry-forward"
+  },
+  "results": [
+    {
+      "file": "invoice_001_standard_usd.pdf",
+      "csv_path": "sample_output/invoice_test_set_eval/invoice_001_standard_usd.csv",
+      "table_count": 2,
+      "selected_table_headers": [
+        "Description",
+        "Qty",
+        "Unit Price",
+        "Line Total"
+      ],
+      "selected_row_count": 3,
+      "expected_item_count": 3,
+      "item_count_delta": 0,
+      "invoice_no_found": false,
+      "seller_name_found": false,
+      "buyer_name_found": false,
+      "notes_snippet_found": false
+    },
+    {
+      "file": "invoice_002_eu_vat.pdf",
+      "csv_path": "sample_output/invoice_test_set_eval/invoice_002_eu_vat.csv",
+      "table_count": 2,
+      "selected_table_headers": [
+        "Description",
+        "Qty",
+        "Unit Price",
+        "Line Total"
+      ],
+      "selected_row_count": 2,
+      "expected_item_count": 2,
+      "item_count_delta": 0,
+      "invoice_no_found": false,
+      "seller_name_found": false,
+      "buyer_name_found": false,
+      "notes_snippet_found": false
+    },
+    {
+      "file": "invoice_003_credit_note_style.pdf",
+      "csv_path": "sample_output/invoice_test_set_eval/invoice_003_credit_note_style.csv",
+      "table_count": 2,
+      "selected_table_headers": [
+        "Description",
+        "Qty",
+        "Unit Price",
+        "Line Total"
+      ],
+      "selected_row_count": 2,
+      "expected_item_count": 2,
+      "item_count_delta": 0,
+      "invoice_no_found": false,
+      "seller_name_found": false,
+      "buyer_name_found": false,
+      "notes_snippet_found": false
+    },
+    {
+      "file": "invoice_004_multiline_items.pdf",
+      "csv_path": "sample_output/invoice_test_set_eval/invoice_004_multiline_items.csv",
+      "table_count": 2,
+      "selected_table_headers": [
+        "Description",
+        "Qty",
+        "Unit Price",
+        "Line Total"
+      ],
+      "selected_row_count": 3,
+      "expected_item_count": 3,
+      "item_count_delta": 0,
+      "invoice_no_found": false,
+      "seller_name_found": false,
+      "buyer_name_found": false,
+      "notes_snippet_found": false
+    },
+    {
+      "file": "invoice_005_multi_page.pdf",
+      "csv_path": "sample_output/invoice_test_set_eval/invoice_005_multi_page.csv",
+      "table_count": 2,
+      "selected_table_headers": [
+        "Description",
+        "Qty",
+        "Unit Price",
+        "Line Total"
+      ],
+      "selected_row_count": 25,
+      "expected_item_count": 25,
+      "item_count_delta": 0,
+      "invoice_no_found": false,
+      "seller_name_found": false,
+      "buyer_name_found": false,
+      "notes_snippet_found": false
+    },
+    {
+      "file": "invoice_006_no_tax_bank_details.pdf",
+      "csv_path": "sample_output/invoice_test_set_eval/invoice_006_no_tax_bank_details.csv",
+      "table_count": 2,
+      "selected_table_headers": [
+        "Description",
+        "Qty",
+        "Unit Price",
+        "Line Total"
+      ],
+      "selected_row_count": 2,
+      "expected_item_count": 2,
+      "item_count_delta": 0,
+      "invoice_no_found": false,
+      "seller_name_found": false,
+      "buyer_name_found": false,
+      "notes_snippet_found": false
+    }
+  ]
+}

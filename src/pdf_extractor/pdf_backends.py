@@ -38,9 +38,11 @@ class PdfPlumberExtractor:
             ) from exc
 
         tables: list[TableData] = []
+        prior_headers: list[str] | None = None
         metadata = {
             "profile": self.config.profile,
             "ocr_backend": self.config.ocr_backend,
+            "header_strategy": self.config.header_strategy,
         }
         if self.config.debug_dir is not None:
             metadata["debug_dir"] = str(self.config.debug_dir)
@@ -49,10 +51,12 @@ class PdfPlumberExtractor:
             for page_index, page in enumerate(pdf.pages, start=1):
                 page_tables = page.extract_tables() or []
                 for raw_table in page_tables:
-                    normalized = normalize_rows(raw_table)
+                    normalized = self._normalize_page_table(raw_table, prior_headers)
                     if normalized.headers or normalized.rows:
                         normalized.source_page = page_index
                         tables.append(normalized)
+                        if normalized.headers:
+                            prior_headers = normalized.headers
 
                 if page_tables:
                     continue
@@ -67,7 +71,93 @@ class PdfPlumberExtractor:
                 if ocr_table is not None:
                     tables.append(ocr_table)
 
+        tables = self._merge_continuation_tables(tables)
         return ExtractedDocument(source_path=str(pdf_path), tables=tables, metadata=metadata)
+
+    def _merge_continuation_tables(self, tables: list[TableData]) -> list[TableData]:
+        if not tables:
+            return tables
+
+        merged: list[TableData] = [tables[0]]
+        for table in tables[1:]:
+            previous = merged[-1]
+            if self._should_merge_tables(previous, table):
+                previous.rows.extend(table.rows)
+                continue
+            merged.append(table)
+        return merged
+
+    def _should_merge_tables(self, left: TableData, right: TableData) -> bool:
+        if not left.headers or not right.headers:
+            return False
+        if left.headers != right.headers:
+            return False
+        if len(left.headers) < 3:
+            return False
+        if not left.rows or not right.rows:
+            return False
+
+        left_page = left.source_page or 0
+        right_page = right.source_page or 0
+        if right_page < left_page:
+            return False
+        if right_page - left_page > 1:
+            return False
+
+        return self._is_line_item_table(left) and self._is_line_item_table(right)
+
+    def _is_line_item_table(self, table: TableData) -> bool:
+        headers = [header.lower() for header in table.headers]
+        header_hits = sum(
+            any(keyword in header for header in headers)
+            for keyword in ("description", "item", "qty", "quantity", "unit", "price", "total")
+        )
+        return header_hits >= 3
+
+    def _normalize_page_table(
+        self, raw_table: list[list[object | None]], prior_headers: list[str] | None
+    ) -> TableData:
+        normalized = normalize_rows(raw_table)
+        if not prior_headers:
+            return normalized
+
+        strategy = self.config.header_strategy
+        if strategy == "page":
+            return normalized
+
+        if strategy == "carry-forward" and self._should_carry_forward_headers(
+            normalized, prior_headers
+        ):
+            combined_rows = [normalized.headers, *normalized.rows] if normalized.headers else normalized.rows
+            width = len(prior_headers)
+            carried_rows = [self._pad_row(row, width) for row in combined_rows]
+            return TableData(headers=list(prior_headers), rows=carried_rows)
+
+        if strategy == "auto" and self._should_carry_forward_headers(normalized, prior_headers):
+            combined_rows = [normalized.headers, *normalized.rows] if normalized.headers else normalized.rows
+            width = len(prior_headers)
+            carried_rows = [self._pad_row(row, width) for row in combined_rows]
+            return TableData(headers=list(prior_headers), rows=carried_rows)
+
+        return normalized
+
+    def _should_carry_forward_headers(
+        self, table: TableData, prior_headers: list[str]
+    ) -> bool:
+        if not prior_headers or not table.headers:
+            return False
+
+        if len(table.headers) != len(prior_headers):
+            return False
+
+        prior_alpha = sum(any(char.isalpha() for char in cell) for cell in prior_headers)
+        current_alpha = sum(any(char.isalpha() for char in cell) for cell in table.headers)
+        current_numeric_heavy = sum(sum(char.isdigit() for char in cell) >= 2 for cell in table.headers)
+
+        return current_alpha < prior_alpha and current_numeric_heavy >= 2
+
+    def _pad_row(self, row: list[str], width: int) -> list[str]:
+        return row + [""] * (width - len(row))
 
     def _extract_text_table(self, text: str, page_index: int) -> TableData | None:
         lines = [line.strip() for line in text.splitlines() if line.strip()]
@@ -263,6 +353,13 @@ class PdfPlumberExtractor:
         normalized.source_page = page_index
 
         if self.config.debug_dir is not None:
+            self._write_debug_overlays(
+                page_index=page_index,
+                backend_name=backend_name,
+                lines=lines,
+                header_index=header_index,
+                column_ranges=column_ranges,
+            )
             self._write_debug_json(
                 page_index,
                 f"{backend_name}_summary.json",
@@ -620,3 +717,127 @@ class PdfPlumberExtractor:
         if page_dir is None:
             return
         image.save(page_dir / filename)
+
+    def _write_debug_overlays(
+        self,
+        *,
+        page_index: int,
+        backend_name: str,
+        lines: list[list[dict[str, object]]],
+        header_index: int | None,
+        column_ranges: list[tuple[float, float]] | None,
+    ) -> None:
+        page_dir = self._debug_page_dir(page_index)
+        if page_dir is None:
+            return
+
+        rendered_path = page_dir / "rendered_page.png"
+        if not rendered_path.exists():
+            return
+
+        try:
+            from PIL import Image, ImageDraw
+        except ImportError:
+            return
+
+        base_image = Image.open(rendered_path).convert("RGB")
+        self._draw_token_overlay(base_image, page_dir / f"{backend_name}_tokens_overlay.png", lines)
+        self._draw_row_overlay(
+            base_image,
+            page_dir / f"{backend_name}_rows_overlay.png",
+            lines,
+            header_index,
+        )
+        if column_ranges is not None:
+            self._draw_column_overlay(
+                base_image,
+                page_dir / f"{backend_name}_columns_overlay.png",
+                column_ranges,
+            )
+
+    def _draw_token_overlay(self, base_image: Any, output_path: Path, lines: list[list[dict[str, object]]]) -> None:
+        from PIL import ImageDraw
+
+        image = base_image.copy()
+        draw = ImageDraw.Draw(image, "RGBA")
+        palette = [
+            (231, 76, 60, 110),
+            (52, 152, 219, 110),
+            (46, 204, 113, 110),
+            (241, 196, 15, 110),
+            (155, 89, 182, 110),
+        ]
+
+        for line_index, line in enumerate(lines):
+            color = palette[line_index % len(palette)]
+            outline = color[:3] + (255,)
+            for item in line:
+                draw.rectangle(
+                    [
+                        float(item["x0"]),
+                        float(item["y0"]),
+                        float(item["x1"]),
+                        float(item["y1"]),
+                    ],
+                    outline=outline,
+                    width=2,
+                )
+        image.save(output_path)
+
+    def _draw_row_overlay(
+        self,
+        base_image: Any,
+        output_path: Path,
+        lines: list[list[dict[str, object]]],
+        header_index: int | None,
+    ) -> None:
+        from PIL import ImageDraw
+
+        image = base_image.copy()
+        draw = ImageDraw.Draw(image, "RGBA")
+
+        for line_index, line in enumerate(lines):
+            x0 = min(float(item["x0"]) for item in line)
+            x1 = max(float(item["x1"]) for item in line)
+            y0 = min(float(item["y0"]) for item in line)
+            y1 = max(float(item["y1"]) for item in line)
+            fill = (52, 152, 219, 50)
+            outline = (41, 128, 185, 180)
+            if header_index is not None and line_index == header_index:
+                fill = (46, 204, 113, 65)
+                outline = (39, 174, 96, 220)
+            draw.rectangle([x0, y0, x1, y1], fill=fill, outline=outline, width=2)
+
+        image.save(output_path)
+
+    def _draw_column_overlay(
+        self,
+        base_image: Any,
+        output_path: Path,
+        column_ranges: list[tuple[float, float]],
+    ) -> None:
+        from PIL import ImageDraw
+
+        image = base_image.copy()
+        draw = ImageDraw.Draw(image, "RGBA")
+        width, height = image.size
+        palette = [
+            (231, 76, 60, 40),
+            (52, 152, 219, 40),
+            (46, 204, 113, 40),
+            (241, 196, 15, 40),
+            (155, 89, 182, 40),
+            (26, 188, 156, 40),
+        ]
+
+        for index, (x_min, x_max) in enumerate(column_ranges):
+            left = 0 if math.isinf(x_min) and x_min < 0 else max(0, int(x_min))
+            right = width if math.isinf(x_max) else min(width, int(x_max))
+            if right <= left:
+                continue
+            fill = palette[index % len(palette)]
+            draw.rectangle([left, 0, right, height], fill=fill)
+            draw.line([left, 0, left, height], fill=(44, 62, 80, 180), width=2)
+            draw.line([right, 0, right, height], fill=(44, 62, 80, 180), width=2)
+
+        image.save(output_path)

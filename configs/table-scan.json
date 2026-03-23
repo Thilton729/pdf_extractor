@@ -1,0 +1,10 @@
+{
+  "profile": "table_scan",
+  "ocr_backend": "auto",
+  "render_scale": 3.0,
+  "threshold": 180,
+  "min_confidence": 0.2,
+  "row_y_tolerance": 18.0,
+  "column_x_tolerance": 28.0,
+  "tesseract_psm": 6
+}

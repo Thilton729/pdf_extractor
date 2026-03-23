@@ -31,16 +31,24 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
+If you do not activate the virtualenv, use `.venv/bin/python` in the commands below instead of `python`.
+
+For convenience, you can also run the project from the repository root with:
+
+```bash
+.venv/bin/python run_pdf_extractor.py extract input.pdf --output out.csv
+```
+
 ## Usage
 
 ```bash
-python -m pdf_extractor extract input.pdf --output sample_output/out.csv --format csv
+.venv/bin/python run_pdf_extractor.py extract data/input.pdf --output sample_output/out.csv --format csv
 ```
 
 Scanned-PDF example with tuning/debug options:
 
 ```bash
-python -m pdf_extractor extract scanned.pdf \
+.venv/bin/python run_pdf_extractor.py extract data/scanned.pdf \
   --output sample_output/scanned.csv \
   --profile table_scan \
   --ocr-backend auto \
@@ -69,12 +77,18 @@ Saved-config example:
 Run with a config file:
 
 ```bash
-python -m pdf_extractor extract scanned.pdf \
+.venv/bin/python run_pdf_extractor.py extract data/scanned.pdf \
   --config configs/table-scan.json \
   --output sample_output/scanned.csv
 ```
 
 CLI flags override config file values, so you can keep a reusable preset and tweak one or two settings per run.
+
+Starter presets included in this repo:
+
+- `configs/table-scan.json`
+- `configs/directory-scan.json`
+- `configs/form-scan.json`
 
 ### Profiles
 
@@ -85,6 +99,7 @@ CLI flags override config file values, so you can keep a reusable preset and twe
 ### Important tuning flags
 
 - `--ocr-backend {auto,tesseract,rapidocr}`
+- `--header-strategy {auto,page,carry-forward}`
 - `--config`
 - `--render-scale`
 - `--threshold`
@@ -99,6 +114,7 @@ CLI flags override config file values, so you can keep a reusable preset and twe
 - `csv` is implemented
 - `xlsx` and `sheets` currently return a clear `NotImplementedError`
 - When `--debug-dir` is set, the extractor writes page images, OCR output, and backend-selection summaries for tuning
+- `--header-strategy carry-forward` is useful for multi-page digital-text tables where later pages repeat data rows but not column headers cleanly
 - If `pdfplumber` or OCR dependencies are not installed, PDF extraction will fail with an actionable message
 
 ## Development
@@ -106,7 +122,17 @@ CLI flags override config file values, so you can keep a reusable preset and twe
 Run tests:
 
 ```bash
-PYTHONPATH=src python -m unittest discover -s tests
+PYTHONPATH=src .venv/bin/python -m unittest discover -s tests
+```
+
+Batch-evaluate the included invoice test set:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/eval_invoice_test_set.py \
+  --data-dir data/invoice_test_set \
+  --output-dir sample_output/invoice_test_set_eval \
+  --config configs/table-scan.json \
+  --header-strategy carry-forward
 ```
 
 ## Next steps

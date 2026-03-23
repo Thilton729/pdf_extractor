@@ -16,6 +16,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(args.format, "csv")
         self.assertIsNone(args.profile)
         self.assertIsNone(args.ocr_backend)
+        self.assertIsNone(args.header_strategy)
 
     def test_main_returns_zero_on_success(self) -> None:
         document = ExtractedDocument(
@@ -48,6 +49,8 @@ class CliTests(unittest.TestCase):
                         "tesseract",
                         "--render-scale",
                         "4.0",
+                        "--header-strategy",
+                        "carry-forward",
                         "--threshold",
                         "170",
                         "--min-confidence",
@@ -66,6 +69,7 @@ class CliTests(unittest.TestCase):
         self.assertIsInstance(passed_config, ExtractionConfig)
         self.assertEqual(passed_config.profile, "form_scan")
         self.assertEqual(passed_config.ocr_backend, "tesseract")
+        self.assertEqual(passed_config.header_strategy, "carry-forward")
         self.assertEqual(passed_config.debug_dir, debug_dir)
 
     def test_main_exits_for_missing_input(self) -> None:
@@ -79,7 +83,7 @@ class CliTests(unittest.TestCase):
             output_path = Path(temp_dir) / "out.csv"
             config_path = Path(temp_dir) / "config.json"
             config_path.write_text(
-                '{"profile":"directory_scan","ocr_backend":"rapidocr","threshold":165}',
+                '{"profile":"directory_scan","ocr_backend":"rapidocr","header_strategy":"page","threshold":165}',
                 encoding="utf-8",
             )
             with patch("pdf_extractor.cli.extract_tables", return_value=document) as extract_mock:
@@ -98,6 +102,7 @@ class CliTests(unittest.TestCase):
         passed_config = extract_mock.call_args.kwargs["config"]
         self.assertEqual(passed_config.profile, "directory_scan")
         self.assertEqual(passed_config.ocr_backend, "rapidocr")
+        self.assertEqual(passed_config.header_strategy, "page")
         self.assertEqual(passed_config.threshold, 190)
 
 

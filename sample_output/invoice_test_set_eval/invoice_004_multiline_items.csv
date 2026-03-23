@@ -1,0 +1,12 @@
+Description,Qty,Unit Price,Line Total
+"Managed backup cluster with 30-day retention and
+cross-region replication for production datasets",1,"S$1,880.00","S$1,880.00"
+"Priority support plan including after-hours response
+coverage for regulated workloads",1,S$720.00,S$720.00
+Object storage overage - 1.84 TB,1840,S$0.12,S$220.80
+
+Subtotal,"S$2,820.80"
+Discount,S$120.80
+GST (9%),S$243.00
+Shipping / Handling,S$0.00
+Total Due,"S$2,943.00"
