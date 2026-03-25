@@ -3,8 +3,10 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from pdf_extractor.config import build_extraction_config
+from pdf_extractor.layout_analyzer.models import PageLayout
 from pdf_extractor.models import TableData
 from pdf_extractor.pdf_backends import PdfPlumberExtractor
 
@@ -115,6 +117,59 @@ class PdfBackendTests(unittest.TestCase):
             self.assertTrue((page_dir / "rapidocr_tokens_overlay.png").exists())
             self.assertTrue((page_dir / "rapidocr_rows_overlay.png").exists())
             self.assertTrue((page_dir / "rapidocr_columns_overlay.png").exists())
+
+    def test_analyze_page_layout_writes_layout_debug_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            extractor = PdfPlumberExtractor(
+                config=build_extraction_config(
+                    debug_dir=temp_dir,
+                    layout_analysis="debug",
+                )
+            )
+
+            from PIL import Image
+
+            image = Image.new("RGB", (180, 120), "white")
+            layout = extractor._analyze_page_layout(1, image)
+
+            page_dir = Path(temp_dir) / "page_001"
+            self.assertIsNotNone(layout)
+            self.assertTrue((page_dir / "page_001_original.png").exists())
+            self.assertTrue((page_dir / "page_001_layout.json").exists())
+            self.assertTrue((page_dir / "page_001_regions.png").exists())
+
+    def test_extract_ocr_table_uses_layout_hint_tolerances(self) -> None:
+        extractor = PdfPlumberExtractor(config=build_extraction_config(layout_analysis="auto"))
+        layout = PageLayout(
+            page_number=1,
+            layout_type="structured_table",
+            confidence=0.8,
+            hints={
+                "recommended_profile": "table_scan",
+                "row_y_tolerance": 11.0,
+                "column_x_tolerance": 19.0,
+            },
+        )
+
+        with patch.object(extractor, "_render_page_image", return_value=object()), patch.object(
+            extractor,
+            "_analyze_page_layout",
+            return_value=layout,
+        ), patch.object(
+            extractor,
+            "_extract_tesseract_table",
+            return_value=None,
+        ) as tesseract_mock, patch.object(
+            extractor,
+            "_extract_rapidocr_table",
+            return_value=None,
+        ) as rapidocr_mock:
+            extractor._extract_ocr_table(Path("sample.pdf"), 1)
+
+        self.assertEqual(tesseract_mock.call_args.kwargs["row_tolerance"], 11.0)
+        self.assertEqual(tesseract_mock.call_args.kwargs["column_tolerance"], 19.0)
+        self.assertEqual(rapidocr_mock.call_args.kwargs["row_tolerance"], 11.0)
+        self.assertEqual(rapidocr_mock.call_args.kwargs["column_tolerance"], 19.0)
 
     def test_should_carry_forward_headers_for_continuation_page(self) -> None:
         table = TableData(

@@ -8,10 +8,16 @@ from .config import (
 )
 from .extractor import extract_tables
 from .exporters import export_table
+from .layout_analyzer import DocumentLayout, LayoutAnalyzer, LayoutConfig, LayoutRegion, PageLayout
 from .models import ExtractedDocument, TableData
 
 __all__ = [
+    "DocumentLayout",
     "ExtractedDocument",
+    "LayoutAnalyzer",
+    "LayoutConfig",
+    "LayoutRegion",
+    "PageLayout",
     "TableData",
     "ExtractionConfig",
     "build_extraction_config",

@@ -14,6 +14,14 @@ from pathlib import Path
 from typing import Any
 
 from .config import ExtractionConfig
+from .layout_analyzer import LayoutAnalyzer, PageImage
+from .layout_analyzer.debug import (
+    save_document_summary,
+    save_layout_summary,
+    save_preprocess_layers,
+    save_region_overlay,
+)
+from .layout_analyzer.preprocess import prepare_analysis_layers
 from .models import ExtractedDocument, TableData
 from .normalizer import normalize_rows
 
@@ -27,6 +35,7 @@ class PdfPlumberExtractor:
 
     def __init__(self, config: ExtractionConfig) -> None:
         self.config = config
+        self.layout_analyzer = LayoutAnalyzer()
 
     def extract(self, pdf_path: Path) -> ExtractedDocument:
         try:
@@ -43,6 +52,7 @@ class PdfPlumberExtractor:
             "profile": self.config.profile,
             "ocr_backend": self.config.ocr_backend,
             "header_strategy": self.config.header_strategy,
+            "layout_analysis": self.config.layout_config.mode,
         }
         if self.config.debug_dir is not None:
             metadata["debug_dir"] = str(self.config.debug_dir)
@@ -179,17 +189,48 @@ class PdfPlumberExtractor:
 
     def _extract_ocr_table(self, pdf_path: Path, page_index: int) -> TableData | None:
         image = self._render_page_image(pdf_path, page_index)
+        page_layout = self._analyze_page_layout(page_index, image)
+        active_profile = self.config.profile
+        row_tolerance = self.config.row_y_tolerance
+        column_tolerance = self.config.column_x_tolerance
+        if page_layout is not None:
+            active_profile = str(
+                page_layout.hints.get("recommended_profile", self.config.profile)
+            )
+            row_tolerance = float(
+                page_layout.hints.get("row_y_tolerance", self.config.row_y_tolerance)
+            )
+            column_tolerance = float(
+                page_layout.hints.get(
+                    "column_x_tolerance", self.config.column_x_tolerance
+                )
+            )
+
         candidates: list[tuple[str, TableData]] = []
 
         if self.config.ocr_backend in ("auto", "tesseract"):
-            candidate = self._extract_tesseract_table(pdf_path, page_index, image)
+            candidate = self._extract_tesseract_table(
+                pdf_path,
+                page_index,
+                image,
+                active_profile=active_profile,
+                row_tolerance=row_tolerance,
+                column_tolerance=column_tolerance,
+            )
             if candidate is not None:
                 candidates.append(("tesseract", candidate))
             elif self.config.ocr_backend == "tesseract":
                 raise PdfExtractionError("Tesseract OCR was selected but no usable output was produced.")
 
         if self.config.ocr_backend in ("auto", "rapidocr"):
-            candidate = self._extract_rapidocr_table(pdf_path, page_index, image)
+            candidate = self._extract_rapidocr_table(
+                pdf_path,
+                page_index,
+                image,
+                active_profile=active_profile,
+                row_tolerance=row_tolerance,
+                column_tolerance=column_tolerance,
+            )
             if candidate is not None:
                 candidates.append(("rapidocr", candidate))
             elif self.config.ocr_backend == "rapidocr":
@@ -208,8 +249,9 @@ class PdfPlumberExtractor:
                 "candidate_scores.json",
                 {
                     "pdf_path": str(pdf_path),
-                    "profile": self.config.profile,
+                    "profile": active_profile,
                     "backend": self.config.ocr_backend,
+                    "layout_type": page_layout.layout_type if page_layout is not None else None,
                     "candidates": scored_candidates,
                 },
             )
@@ -224,7 +266,14 @@ class PdfPlumberExtractor:
         return best_table
 
     def _extract_rapidocr_table(
-        self, pdf_path: Path, page_index: int, image: Any
+        self,
+        pdf_path: Path,
+        page_index: int,
+        image: Any,
+        *,
+        active_profile: str,
+        row_tolerance: float,
+        column_tolerance: float,
     ) -> TableData | None:
         try:
             import numpy as np
@@ -250,10 +299,20 @@ class PdfPlumberExtractor:
             page_index=page_index,
             items=result,
             backend_name="rapidocr",
+            active_profile=active_profile,
+            row_tolerance=row_tolerance,
+            column_tolerance=column_tolerance,
         )
 
     def _extract_tesseract_table(
-        self, pdf_path: Path, page_index: int, image: Any
+        self,
+        pdf_path: Path,
+        page_index: int,
+        image: Any,
+        *,
+        active_profile: str,
+        row_tolerance: float,
+        column_tolerance: float,
     ) -> TableData | None:
         if shutil.which("tesseract") is None:
             return None
@@ -307,6 +366,9 @@ class PdfPlumberExtractor:
             page_index=page_index,
             items=items,
             backend_name="tesseract",
+            active_profile=active_profile,
+            row_tolerance=row_tolerance,
+            column_tolerance=column_tolerance,
         )
 
     def _items_to_table(
@@ -316,8 +378,11 @@ class PdfPlumberExtractor:
         page_index: int,
         items: list[list[object]],
         backend_name: str,
+        active_profile: str,
+        row_tolerance: float,
+        column_tolerance: float,
     ) -> TableData | None:
-        lines = self._group_ocr_lines(items)
+        lines = self._group_ocr_lines(items, row_tolerance=row_tolerance)
         if len(lines) < 2:
             return None
 
@@ -345,7 +410,12 @@ class PdfPlumberExtractor:
             raw_rows = [self._parse_directory_row(line) for line in body_lines]
             reconstruction = "directory_scan"
         elif headers and column_ranges is not None:
-            raw_rows = [self._assign_line_to_columns(line, column_ranges) for line in body_lines]
+            raw_rows = [
+                self._assign_line_to_columns(
+                    line, column_ranges, column_tolerance=column_tolerance
+                )
+                for line in body_lines
+            ]
         else:
             raw_rows = [[str(item["text"]).strip() for item in line] for line in body_lines]
 
@@ -366,11 +436,13 @@ class PdfPlumberExtractor:
                 {
                     "pdf_path": str(pdf_path),
                     "backend": backend_name,
-                    "profile": self.config.profile,
+                    "profile": active_profile,
                     "header_index": header_index,
                     "headers": headers,
                     "line_count": len(lines),
                     "reconstruction": reconstruction,
+                    "row_y_tolerance": row_tolerance,
+                    "column_x_tolerance": column_tolerance,
                     "config": asdict(self.config),
                 },
             )
@@ -388,10 +460,43 @@ class PdfPlumberExtractor:
 
         pdf = pdfium.PdfDocument(str(pdf_path))
         page = pdf[page_index - 1]
-        image = page.render(scale=self.config.render_scale).to_pil()
+        render_scale = self.config.render_scale
+        if self.config.layout_config.enabled:
+            render_scale = max(render_scale, self.config.layout_config.render_scale)
+        image = page.render(scale=render_scale).to_pil()
         if self.config.debug_dir is not None:
             self._write_debug_image(page_index, "rendered_page.png", image)
         return image
+
+    def _analyze_page_layout(self, page_index: int, image: Any):
+        if not self.config.layout_config.enabled:
+            return None
+
+        page_image = PageImage(
+            page_number=page_index,
+            image=image,
+            width=image.width,
+            height=image.height,
+            dpi=int(round(self.config.layout_config.render_scale * 72)),
+        )
+        page_layout = self.layout_analyzer.analyze_page(page_image, self.config.layout_config)
+
+        if self.config.layout_config.debug_enabled and self.config.layout_config.debug_dir is not None:
+            layers = prepare_analysis_layers(image, self.config.layout_config)
+            save_preprocess_layers(page_index, layers, self.config.layout_config.debug_dir)
+            save_region_overlay(
+                page_index,
+                image,
+                page_layout.regions,
+                self.config.layout_config.debug_dir,
+            )
+            save_layout_summary(page_layout, self.config.layout_config.debug_dir)
+            save_document_summary(
+                self.layout_analyzer.analyze_document([page_image], self.config.layout_config),
+                self.config.layout_config.debug_dir,
+            )
+
+        return page_layout
 
     def _parse_tesseract_tsv(self, tsv_path: Path) -> list[list[object]]:
         items: list[list[object]] = []
@@ -470,7 +575,9 @@ class PdfPlumberExtractor:
 
         return score
 
-    def _group_ocr_lines(self, ocr_result: list[list[object]]) -> list[list[dict[str, object]]]:
+    def _group_ocr_lines(
+        self, ocr_result: list[list[object]], *, row_tolerance: float | None = None
+    ) -> list[list[dict[str, object]]]:
         items: list[dict[str, object]] = []
         for entry in ocr_result:
             points, text, score = entry
@@ -492,7 +599,7 @@ class PdfPlumberExtractor:
 
         items.sort(key=lambda item: (float(item["yc"]), float(item["x0"])))
         lines: list[list[dict[str, object]]] = []
-        tolerance = self.config.row_y_tolerance
+        tolerance = self.config.row_y_tolerance if row_tolerance is None else row_tolerance
 
         for item in items:
             if not lines:
@@ -550,9 +657,18 @@ class PdfPlumberExtractor:
         return ranges
 
     def _assign_line_to_columns(
-        self, line: list[dict[str, object]], column_ranges: list[tuple[float, float]]
+        self,
+        line: list[dict[str, object]],
+        column_ranges: list[tuple[float, float]],
+        *,
+        column_tolerance: float | None = None,
     ) -> list[str]:
         cells = ["" for _ in column_ranges]
+        tolerance = (
+            self.config.column_x_tolerance
+            if column_tolerance is None
+            else column_tolerance
+        )
         for item in line:
             x_center = (float(item["x0"]) + float(item["x1"])) / 2
             assigned_index = None
@@ -568,7 +684,7 @@ class PdfPlumberExtractor:
                 ]
                 if distances:
                     nearest = min(range(len(distances)), key=distances.__getitem__)
-                    if distances[nearest] <= self.config.column_x_tolerance:
+                    if distances[nearest] <= tolerance:
                         assigned_index = nearest
 
             if assigned_index is None:

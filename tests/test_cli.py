@@ -17,6 +17,7 @@ class CliTests(unittest.TestCase):
         self.assertIsNone(args.profile)
         self.assertIsNone(args.ocr_backend)
         self.assertIsNone(args.header_strategy)
+        self.assertIsNone(args.layout_analysis)
 
     def test_main_returns_zero_on_success(self) -> None:
         document = ExtractedDocument(
@@ -63,6 +64,20 @@ class CliTests(unittest.TestCase):
                         "11",
                         "--debug-dir",
                         str(debug_dir),
+                        "--layout-analysis",
+                        "debug",
+                        "--layout-render-scale",
+                        "2.5",
+                        "--layout-min-region-area",
+                        "700",
+                        "--layout-merge-iou-threshold",
+                        "0.6",
+                        "--layout-line-kernel-scale",
+                        "25",
+                        "--layout-threshold-method",
+                        "otsu",
+                        "--layout-region-padding",
+                        "12",
                     ]
                 )
         passed_config = extract_mock.call_args.kwargs["config"]
@@ -71,6 +86,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(passed_config.ocr_backend, "tesseract")
         self.assertEqual(passed_config.header_strategy, "carry-forward")
         self.assertEqual(passed_config.debug_dir, debug_dir)
+        self.assertEqual(passed_config.layout_config.mode, "debug")
+        self.assertEqual(passed_config.layout_config.render_scale, 2.5)
+        self.assertEqual(passed_config.layout_config.min_region_area, 700)
+        self.assertEqual(passed_config.layout_config.merge_iou_threshold, 0.6)
+        self.assertEqual(passed_config.layout_config.line_kernel_scale, 25)
+        self.assertEqual(passed_config.layout_config.threshold_method, "otsu")
+        self.assertEqual(passed_config.layout_config.region_padding, 12)
 
     def test_main_exits_for_missing_input(self) -> None:
         with self.assertRaises(SystemExit) as context:
@@ -83,7 +105,7 @@ class CliTests(unittest.TestCase):
             output_path = Path(temp_dir) / "out.csv"
             config_path = Path(temp_dir) / "config.json"
             config_path.write_text(
-                '{"profile":"directory_scan","ocr_backend":"rapidocr","header_strategy":"page","threshold":165}',
+                '{"profile":"directory_scan","ocr_backend":"rapidocr","header_strategy":"page","threshold":165,"layout_analysis":"debug"}',
                 encoding="utf-8",
             )
             with patch("pdf_extractor.cli.extract_tables", return_value=document) as extract_mock:
@@ -97,6 +119,8 @@ class CliTests(unittest.TestCase):
                         str(config_path),
                         "--threshold",
                         "190",
+                        "--layout-analysis",
+                        "auto",
                     ]
                 )
         passed_config = extract_mock.call_args.kwargs["config"]
@@ -104,6 +128,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(passed_config.ocr_backend, "rapidocr")
         self.assertEqual(passed_config.header_strategy, "page")
         self.assertEqual(passed_config.threshold, 190)
+        self.assertEqual(passed_config.layout_config.mode, "auto")
 
 
 if __name__ == "__main__":

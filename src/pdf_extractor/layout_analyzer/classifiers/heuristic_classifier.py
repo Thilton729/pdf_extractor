@@ -25,6 +25,8 @@ def classify_page(
             {
                 "recommended_profile": "table_scan",
                 "prefer_ocr": True,
+                "row_y_tolerance": 18.0,
+                "column_x_tolerance": 24.0,
                 "line_density": round(line_density, 4),
                 "table_region_count": len(table_regions),
             },
@@ -37,6 +39,8 @@ def classify_page(
             {
                 "recommended_profile": "table_scan",
                 "prefer_ocr": True,
+                "row_y_tolerance": 18.0,
+                "column_x_tolerance": 28.0,
                 "line_density": round(line_density, 4),
                 "table_region_count": len(table_regions),
             },
@@ -49,6 +53,8 @@ def classify_page(
             {
                 "recommended_profile": "table_scan",
                 "prefer_ocr": False,
+                "row_y_tolerance": 18.0,
+                "column_x_tolerance": 24.0,
                 "line_density": round(line_density, 4),
             },
         )
@@ -59,6 +65,8 @@ def classify_page(
         {
             "recommended_profile": "table_scan",
             "prefer_ocr": bool(table_regions),
+            "row_y_tolerance": 18.0,
+            "column_x_tolerance": 24.0,
             "line_density": round(line_density, 4),
         },
     )

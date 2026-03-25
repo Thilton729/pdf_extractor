@@ -11,6 +11,7 @@ from .config import (
     OCR_PROFILES,
     build_extraction_config_from_sources,
 )
+from .layout_analyzer.config import LAYOUT_ANALYSIS_MODES, LAYOUT_THRESHOLD_METHODS
 from .constants import DEFAULT_EXPORT_FORMAT, SUPPORTED_FORMATS
 from .extractor import extract_tables
 from .exporters import export_table
@@ -92,6 +93,41 @@ def build_parser() -> argparse.ArgumentParser:
         "--debug-dir",
         help="Optional directory for OCR/debug artifacts such as images, TSV, and summaries.",
     )
+    extract_parser.add_argument(
+        "--layout-analysis",
+        choices=LAYOUT_ANALYSIS_MODES,
+        help="Enable layout analysis routing and optional debug artifacts.",
+    )
+    extract_parser.add_argument(
+        "--layout-render-scale",
+        type=float,
+        help="Render scale used for layout analysis when scanned-page analysis is enabled.",
+    )
+    extract_parser.add_argument(
+        "--layout-min-region-area",
+        type=int,
+        help="Minimum contour region area to keep during layout analysis.",
+    )
+    extract_parser.add_argument(
+        "--layout-merge-iou-threshold",
+        type=float,
+        help="IOU threshold used to merge overlapping layout regions.",
+    )
+    extract_parser.add_argument(
+        "--layout-line-kernel-scale",
+        type=int,
+        help="Kernel scale used by the line detector during layout analysis.",
+    )
+    extract_parser.add_argument(
+        "--layout-threshold-method",
+        choices=LAYOUT_THRESHOLD_METHODS,
+        help="Thresholding method for layout-analysis preprocessing.",
+    )
+    extract_parser.add_argument(
+        "--layout-region-padding",
+        type=int,
+        help="Padding added to merged layout regions.",
+    )
     return parser
 
 
@@ -115,6 +151,13 @@ def main(argv: list[str] | None = None) -> int:
             column_x_tolerance=args.column_x_tolerance,
             tesseract_psm=args.tesseract_psm,
             debug_dir=args.debug_dir,
+            layout_analysis=args.layout_analysis,
+            layout_render_scale=args.layout_render_scale,
+            layout_min_region_area=args.layout_min_region_area,
+            layout_merge_iou_threshold=args.layout_merge_iou_threshold,
+            layout_line_kernel_scale=args.layout_line_kernel_scale,
+            layout_threshold_method=args.layout_threshold_method,
+            layout_region_padding=args.layout_region_padding,
         )
         document = extract_tables(args.pdf_path, config=config)
         export_table(document, Path(args.output), args.format)

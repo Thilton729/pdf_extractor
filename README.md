@@ -11,6 +11,7 @@ The first implemented path is PDF to CSV. Excel and Google Sheets are intentiona
 - Normalized intermediate table model
 - Real CSV exporter
 - Configurable OCR/layout pipeline for scanned PDFs
+- Optional layout-analysis decision layer for scanned-page routing
 - Tesseract and RapidOCR support with automatic selection
 - Profile-based defaults for tables, directories, and forms
 - Optional debug artifact output for OCR tuning
@@ -51,6 +52,7 @@ Scanned-PDF example with tuning/debug options:
 .venv/bin/python run_pdf_extractor.py extract data/scanned.pdf \
   --output sample_output/scanned.csv \
   --profile table_scan \
+  --layout-analysis debug \
   --ocr-backend auto \
   --render-scale 3.0 \
   --min-confidence 0.25 \
@@ -100,13 +102,20 @@ Starter presets included in this repo:
 
 - `--ocr-backend {auto,tesseract,rapidocr}`
 - `--header-strategy {auto,page,carry-forward}`
+- `--layout-analysis {off,auto,debug}`
 - `--config`
 - `--render-scale`
+- `--layout-render-scale`
 - `--threshold`
 - `--min-confidence`
 - `--row-y-tolerance`
 - `--column-x-tolerance`
 - `--tesseract-psm`
+- `--layout-min-region-area`
+- `--layout-merge-iou-threshold`
+- `--layout-line-kernel-scale`
+- `--layout-threshold-method`
+- `--layout-region-padding`
 - `--debug-dir`
 
 ### Notes
@@ -114,6 +123,7 @@ Starter presets included in this repo:
 - `csv` is implemented
 - `xlsx` and `sheets` currently return a clear `NotImplementedError`
 - When `--debug-dir` is set, the extractor writes page images, OCR output, and backend-selection summaries for tuning
+- When `--layout-analysis debug` is set, the extractor also writes preprocess layers, region overlays, and per-page layout summaries
 - `--header-strategy carry-forward` is useful for multi-page digital-text tables where later pages repeat data rows but not column headers cleanly
 - If `pdfplumber` or OCR dependencies are not installed, PDF extraction will fail with an actionable message
 
