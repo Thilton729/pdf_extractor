@@ -171,6 +171,43 @@ class PdfBackendTests(unittest.TestCase):
         self.assertEqual(rapidocr_mock.call_args.kwargs["row_tolerance"], 11.0)
         self.assertEqual(rapidocr_mock.call_args.kwargs["column_tolerance"], 19.0)
 
+    def test_page_strategy_hints_fall_back_to_config_defaults(self) -> None:
+        extractor = PdfPlumberExtractor(config=build_extraction_config())
+        hints = extractor._page_strategy_hints(None)
+        self.assertEqual(hints["recommended_profile"], "table_scan")
+        self.assertEqual(hints["recommended_mode"], "hybrid")
+        self.assertEqual(hints["row_y_tolerance"], extractor.config.row_y_tolerance)
+        self.assertEqual(
+            hints["column_x_tolerance"], extractor.config.column_x_tolerance
+        )
+
+    def test_build_document_layout_aggregates_page_types(self) -> None:
+        extractor = PdfPlumberExtractor(config=build_extraction_config(layout_analysis="auto"))
+        page_layouts = [
+            PageLayout(
+                page_number=1,
+                layout_type="structured_table",
+                confidence=0.8,
+                hints={"recommended_profile": "table_scan", "recommended_mode": "ocr"},
+            ),
+            PageLayout(
+                page_number=2,
+                layout_type="structured_table",
+                confidence=0.7,
+                hints={"recommended_profile": "table_scan", "recommended_mode": "ocr"},
+            ),
+            PageLayout(
+                page_number=3,
+                layout_type="mixed",
+                confidence=0.6,
+                hints={"recommended_profile": "table_scan", "recommended_mode": "hybrid"},
+            ),
+        ]
+        document_layout = extractor._build_document_layout(page_layouts)
+        self.assertEqual(document_layout.document_type, "structured_table")
+        self.assertAlmostEqual(document_layout.confidence, 2 / 3)
+        self.assertEqual(document_layout.hints["recommended_mode"], "ocr")
+
     def test_should_carry_forward_headers_for_continuation_page(self) -> None:
         table = TableData(
             headers=[

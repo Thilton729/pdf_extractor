@@ -22,6 +22,7 @@ from .layout_analyzer.debug import (
     save_region_overlay,
 )
 from .layout_analyzer.preprocess import prepare_analysis_layers
+from .layout_analyzer.models import DocumentLayout, PageLayout
 from .models import ExtractedDocument, TableData
 from .normalizer import normalize_rows
 
@@ -48,6 +49,7 @@ class PdfPlumberExtractor:
 
         tables: list[TableData] = []
         prior_headers: list[str] | None = None
+        page_layouts: list[PageLayout] = []
         metadata = {
             "profile": self.config.profile,
             "ocr_backend": self.config.ocr_backend,
@@ -59,6 +61,27 @@ class PdfPlumberExtractor:
 
         with pdfplumber.open(pdf_path) as pdf:
             for page_index, page in enumerate(pdf.pages, start=1):
+                page_image = None
+                page_layout = None
+                if self.config.layout_config.enabled:
+                    page_image = self._render_page_image(pdf_path, page_index)
+                    page_layout = self._analyze_page_layout(page_index, page_image)
+                    if page_layout is not None:
+                        page_layouts.append(page_layout)
+
+                page_hints = self._page_strategy_hints(page_layout)
+
+                if page_hints["recommended_mode"] == "ocr":
+                    ocr_table = self._extract_ocr_table(
+                        pdf_path,
+                        page_index,
+                        image=page_image,
+                        page_layout=page_layout,
+                    )
+                    if ocr_table is not None:
+                        tables.append(ocr_table)
+                        continue
+
                 page_tables = page.extract_tables() or []
                 for raw_table in page_tables:
                     normalized = self._normalize_page_table(raw_table, prior_headers)
@@ -77,11 +100,23 @@ class PdfPlumberExtractor:
                     tables.append(fallback_table)
                     continue
 
-                ocr_table = self._extract_ocr_table(pdf_path, page_index)
+                ocr_table = self._extract_ocr_table(
+                    pdf_path,
+                    page_index,
+                    image=page_image,
+                    page_layout=page_layout,
+                )
                 if ocr_table is not None:
                     tables.append(ocr_table)
 
         tables = self._merge_continuation_tables(tables)
+        if page_layouts:
+            document_layout = self._build_document_layout(page_layouts)
+            metadata["layout_document_type"] = document_layout.document_type
+            metadata["layout_confidence"] = document_layout.confidence
+            metadata["layout_hints"] = document_layout.hints
+            if self.config.layout_config.debug_enabled and self.config.layout_config.debug_dir is not None:
+                save_document_summary(document_layout, self.config.layout_config.debug_dir)
         return ExtractedDocument(source_path=str(pdf_path), tables=tables, metadata=metadata)
 
     def _merge_continuation_tables(self, tables: list[TableData]) -> list[TableData]:
@@ -187,24 +222,23 @@ class PdfPlumberExtractor:
         normalized.source_page = page_index
         return normalized
 
-    def _extract_ocr_table(self, pdf_path: Path, page_index: int) -> TableData | None:
-        image = self._render_page_image(pdf_path, page_index)
-        page_layout = self._analyze_page_layout(page_index, image)
-        active_profile = self.config.profile
-        row_tolerance = self.config.row_y_tolerance
-        column_tolerance = self.config.column_x_tolerance
-        if page_layout is not None:
-            active_profile = str(
-                page_layout.hints.get("recommended_profile", self.config.profile)
-            )
-            row_tolerance = float(
-                page_layout.hints.get("row_y_tolerance", self.config.row_y_tolerance)
-            )
-            column_tolerance = float(
-                page_layout.hints.get(
-                    "column_x_tolerance", self.config.column_x_tolerance
-                )
-            )
+    def _extract_ocr_table(
+        self,
+        pdf_path: Path,
+        page_index: int,
+        *,
+        image: Any | None = None,
+        page_layout: PageLayout | None = None,
+    ) -> TableData | None:
+        if image is None:
+            image = self._render_page_image(pdf_path, page_index)
+        if page_layout is None:
+            page_layout = self._analyze_page_layout(page_index, image)
+
+        page_hints = self._page_strategy_hints(page_layout)
+        active_profile = page_hints["recommended_profile"]
+        row_tolerance = page_hints["row_y_tolerance"]
+        column_tolerance = page_hints["column_x_tolerance"]
 
         candidates: list[tuple[str, TableData]] = []
 
@@ -491,12 +525,59 @@ class PdfPlumberExtractor:
                 self.config.layout_config.debug_dir,
             )
             save_layout_summary(page_layout, self.config.layout_config.debug_dir)
-            save_document_summary(
-                self.layout_analyzer.analyze_document([page_image], self.config.layout_config),
-                self.config.layout_config.debug_dir,
-            )
 
         return page_layout
+
+    def _page_strategy_hints(self, page_layout: PageLayout | None) -> dict[str, Any]:
+        return {
+            "recommended_profile": (
+                str(page_layout.hints.get("recommended_profile", self.config.profile))
+                if page_layout is not None
+                else self.config.profile
+            ),
+            "recommended_mode": (
+                str(page_layout.hints.get("recommended_mode", "hybrid"))
+                if page_layout is not None
+                else "hybrid"
+            ),
+            "row_y_tolerance": (
+                float(page_layout.hints.get("row_y_tolerance", self.config.row_y_tolerance))
+                if page_layout is not None
+                else self.config.row_y_tolerance
+            ),
+            "column_x_tolerance": (
+                float(
+                    page_layout.hints.get(
+                        "column_x_tolerance", self.config.column_x_tolerance
+                    )
+                )
+                if page_layout is not None
+                else self.config.column_x_tolerance
+            ),
+        }
+
+    def _build_document_layout(self, page_layouts: list[PageLayout]) -> DocumentLayout:
+        if not page_layouts:
+            return DocumentLayout()
+
+        counts: dict[str, int] = {}
+        for page_layout in page_layouts:
+            counts[page_layout.layout_type] = counts.get(page_layout.layout_type, 0) + 1
+
+        document_type = max(counts, key=counts.get)
+        confidence = counts[document_type] / len(page_layouts)
+        dominant_page = page_layouts[0]
+        return DocumentLayout(
+            pages=page_layouts,
+            document_type=document_type,
+            confidence=confidence,
+            hints={
+                "recommended_profile": dominant_page.hints.get(
+                    "recommended_profile", self.config.profile
+                ),
+                "recommended_mode": dominant_page.hints.get("recommended_mode", "hybrid"),
+            },
+        )
 
     def _parse_tesseract_tsv(self, tsv_path: Path) -> list[list[object]]:
         items: list[list[object]] = []
