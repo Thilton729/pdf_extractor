@@ -239,34 +239,39 @@ class PdfPlumberExtractor:
         active_profile = page_hints["recommended_profile"]
         row_tolerance = page_hints["row_y_tolerance"]
         column_tolerance = page_hints["column_x_tolerance"]
+        table_regions = self._table_region_bboxes(page_layout)
 
-        candidates: list[tuple[str, TableData]] = []
+        candidates: list[tuple[str, str, TableData]] = []
 
         if self.config.ocr_backend in ("auto", "tesseract"):
-            candidate = self._extract_tesseract_table(
+            region_candidates = self._extract_with_regions(
+                "tesseract",
                 pdf_path,
                 page_index,
                 image,
+                table_regions,
                 active_profile=active_profile,
                 row_tolerance=row_tolerance,
                 column_tolerance=column_tolerance,
             )
-            if candidate is not None:
-                candidates.append(("tesseract", candidate))
+            if region_candidates:
+                candidates.extend(region_candidates)
             elif self.config.ocr_backend == "tesseract":
                 raise PdfExtractionError("Tesseract OCR was selected but no usable output was produced.")
 
         if self.config.ocr_backend in ("auto", "rapidocr"):
-            candidate = self._extract_rapidocr_table(
+            region_candidates = self._extract_with_regions(
+                "rapidocr",
                 pdf_path,
                 page_index,
                 image,
+                table_regions,
                 active_profile=active_profile,
                 row_tolerance=row_tolerance,
                 column_tolerance=column_tolerance,
             )
-            if candidate is not None:
-                candidates.append(("rapidocr", candidate))
+            if region_candidates:
+                candidates.extend(region_candidates)
             elif self.config.ocr_backend == "rapidocr":
                 raise PdfExtractionError("RapidOCR was selected but no usable output was produced.")
 
@@ -274,8 +279,8 @@ class PdfPlumberExtractor:
             return None
 
         scored_candidates = [
-            {"backend": backend, "score": self._score_table_quality(table)}
-            for backend, table in candidates
+            {"backend": backend, "source": source, "score": self._score_table_quality(table)}
+            for backend, source, table in candidates
         ]
         if self.config.debug_dir is not None:
             self._write_debug_json(
@@ -286,18 +291,76 @@ class PdfPlumberExtractor:
                     "profile": active_profile,
                     "backend": self.config.ocr_backend,
                     "layout_type": page_layout.layout_type if page_layout is not None else None,
+                    "table_region_count": len(table_regions),
                     "candidates": scored_candidates,
                 },
             )
 
-        best_backend, best_table = max(candidates, key=lambda item: self._score_table_quality(item[1]))
+        best_backend, best_source, best_table = max(
+            candidates, key=lambda item: self._score_table_quality(item[2])
+        )
         if self.config.debug_dir is not None:
             self._write_debug_json(
                 page_index,
                 "selected_backend.json",
-                {"backend": best_backend, "score": self._score_table_quality(best_table)},
+                {
+                    "backend": best_backend,
+                    "source": best_source,
+                    "score": self._score_table_quality(best_table),
+                },
             )
         return best_table
+
+    def _extract_with_regions(
+        self,
+        backend_name: str,
+        pdf_path: Path,
+        page_index: int,
+        image: Any,
+        table_regions: list[tuple[int, int, int, int]],
+        *,
+        active_profile: str,
+        row_tolerance: float,
+        column_tolerance: float,
+    ) -> list[tuple[str, str, TableData]]:
+        extractor = (
+            self._extract_tesseract_table
+            if backend_name == "tesseract"
+            else self._extract_rapidocr_table
+        )
+        candidates: list[tuple[str, str, TableData]] = []
+
+        for index, region_bbox in enumerate(table_regions, start=1):
+            cropped_image = self._crop_image(image, region_bbox)
+            candidate = extractor(
+                pdf_path,
+                page_index,
+                cropped_image,
+                active_profile=active_profile,
+                row_tolerance=row_tolerance,
+                column_tolerance=column_tolerance,
+                region_bbox=region_bbox,
+                region_label=f"region_{index:02d}",
+            )
+            if candidate is not None:
+                candidates.append((backend_name, f"region_{index:02d}", candidate))
+
+        if candidates:
+            return candidates
+
+        candidate = extractor(
+            pdf_path,
+            page_index,
+            image,
+            active_profile=active_profile,
+            row_tolerance=row_tolerance,
+            column_tolerance=column_tolerance,
+            region_bbox=None,
+            region_label="full_page",
+        )
+        if candidate is not None:
+            candidates.append((backend_name, "full_page", candidate))
+        return candidates
 
     def _extract_rapidocr_table(
         self,
@@ -308,6 +371,8 @@ class PdfPlumberExtractor:
         active_profile: str,
         row_tolerance: float,
         column_tolerance: float,
+        region_bbox: tuple[int, int, int, int] | None,
+        region_label: str,
     ) -> TableData | None:
         try:
             import numpy as np
@@ -325,8 +390,15 @@ class PdfPlumberExtractor:
         if not result:
             return None
 
+        if region_bbox is not None:
+            result = self._offset_ocr_items(result, region_bbox[0], region_bbox[1])
+
         if self.config.debug_dir is not None:
-            self._write_debug_json(page_index, "rapidocr.json", {"items": result})
+            self._write_debug_json(
+                page_index,
+                f"rapidocr_{region_label}.json",
+                {"items": result, "region_bbox": region_bbox},
+            )
 
         return self._items_to_table(
             pdf_path=pdf_path,
@@ -336,6 +408,7 @@ class PdfPlumberExtractor:
             active_profile=active_profile,
             row_tolerance=row_tolerance,
             column_tolerance=column_tolerance,
+            source_label=region_label,
         )
 
     def _extract_tesseract_table(
@@ -347,6 +420,8 @@ class PdfPlumberExtractor:
         active_profile: str,
         row_tolerance: float,
         column_tolerance: float,
+        region_bbox: tuple[int, int, int, int] | None,
+        region_label: str,
     ) -> TableData | None:
         if shutil.which("tesseract") is None:
             return None
@@ -387,10 +462,18 @@ class PdfPlumberExtractor:
 
             tsv_path = output_base.with_suffix(".tsv")
             items = self._parse_tesseract_tsv(tsv_path)
+            if region_bbox is not None:
+                items = self._offset_ocr_items(items, region_bbox[0], region_bbox[1])
 
             if self.config.debug_dir is not None:
-                self._write_debug_image(page_index, "tesseract_preprocessed.png", processed)
-                self._write_debug_file(page_index, "tesseract.tsv", tsv_path.read_text(encoding="utf-8"))
+                self._write_debug_image(
+                    page_index, f"tesseract_preprocessed_{region_label}.png", processed
+                )
+                self._write_debug_file(
+                    page_index,
+                    f"tesseract_{region_label}.tsv",
+                    tsv_path.read_text(encoding="utf-8"),
+                )
 
         if not items:
             return None
@@ -403,6 +486,7 @@ class PdfPlumberExtractor:
             active_profile=active_profile,
             row_tolerance=row_tolerance,
             column_tolerance=column_tolerance,
+            source_label=region_label,
         )
 
     def _items_to_table(
@@ -415,6 +499,7 @@ class PdfPlumberExtractor:
         active_profile: str,
         row_tolerance: float,
         column_tolerance: float,
+        source_label: str,
     ) -> TableData | None:
         lines = self._group_ocr_lines(items, row_tolerance=row_tolerance)
         if len(lines) < 2:
@@ -466,10 +551,11 @@ class PdfPlumberExtractor:
             )
             self._write_debug_json(
                 page_index,
-                f"{backend_name}_summary.json",
+                f"{backend_name}_{source_label}_summary.json",
                 {
                     "pdf_path": str(pdf_path),
                     "backend": backend_name,
+                    "source": source_label,
                     "profile": active_profile,
                     "header_index": header_index,
                     "headers": headers,
@@ -555,6 +641,37 @@ class PdfPlumberExtractor:
                 else self.config.column_x_tolerance
             ),
         }
+
+    def _table_region_bboxes(
+        self, page_layout: PageLayout | None
+    ) -> list[tuple[int, int, int, int]]:
+        if page_layout is None:
+            return []
+        return [
+            region.bbox
+            for region in page_layout.regions
+            if region.kind == "table" and region.area() >= self.config.layout_config.min_region_area
+        ]
+
+    def _crop_image(
+        self, image: Any, bbox: tuple[int, int, int, int]
+    ) -> Any:
+        x1, y1, x2, y2 = bbox
+        if hasattr(image, "crop"):
+            return image.crop((x1, y1, x2, y2))
+        return image[y1:y2, x1:x2].copy()
+
+    def _offset_ocr_items(
+        self, items: list[list[object]], x_offset: int, y_offset: int
+    ) -> list[list[object]]:
+        shifted: list[list[object]] = []
+        for points, text, score in items:
+            adjusted_points = [
+                [float(point[0]) + x_offset, float(point[1]) + y_offset]
+                for point in points
+            ]
+            shifted.append([adjusted_points, text, score])
+        return shifted
 
     def _build_document_layout(self, page_layouts: list[PageLayout]) -> DocumentLayout:
         if not page_layouts:

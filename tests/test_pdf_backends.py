@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from pdf_extractor.config import build_extraction_config
-from pdf_extractor.layout_analyzer.models import PageLayout
+from pdf_extractor.layout_analyzer.models import LayoutRegion, PageLayout
 from pdf_extractor.models import TableData
 from pdf_extractor.pdf_backends import PdfPlumberExtractor
 
@@ -170,6 +170,74 @@ class PdfBackendTests(unittest.TestCase):
         self.assertEqual(tesseract_mock.call_args.kwargs["column_tolerance"], 19.0)
         self.assertEqual(rapidocr_mock.call_args.kwargs["row_tolerance"], 11.0)
         self.assertEqual(rapidocr_mock.call_args.kwargs["column_tolerance"], 19.0)
+
+    def test_extract_with_regions_prefers_region_candidates(self) -> None:
+        extractor = PdfPlumberExtractor(config=build_extraction_config(layout_analysis="auto"))
+        from PIL import Image
+
+        image = Image.new("RGB", (200, 200), "white")
+
+        def fake_extractor(*args, **kwargs):
+            if kwargs["region_label"] == "region_01":
+                return TableData(headers=["A"], rows=[["1"]])
+            return None
+
+        with patch.object(extractor, "_extract_tesseract_table", side_effect=fake_extractor):
+            candidates = extractor._extract_with_regions(
+                "tesseract",
+                Path("sample.pdf"),
+                1,
+                image,
+                [(0, 0, 100, 100)],
+                active_profile="table_scan",
+                row_tolerance=10.0,
+                column_tolerance=20.0,
+            )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0][0], "tesseract")
+        self.assertEqual(candidates[0][1], "region_01")
+        self.assertEqual(candidates[0][2].headers, ["A"])
+
+    def test_extract_with_regions_falls_back_to_full_page(self) -> None:
+        extractor = PdfPlumberExtractor(config=build_extraction_config(layout_analysis="auto"))
+        from PIL import Image
+
+        image = Image.new("RGB", (200, 200), "white")
+
+        def fake_extractor(*args, **kwargs):
+            if kwargs["region_label"] == "full_page":
+                return TableData(headers=["A"], rows=[["1"]])
+            return None
+
+        with patch.object(extractor, "_extract_rapidocr_table", side_effect=fake_extractor):
+            candidates = extractor._extract_with_regions(
+                "rapidocr",
+                Path("sample.pdf"),
+                1,
+                image,
+                [(0, 0, 100, 100)],
+                active_profile="table_scan",
+                row_tolerance=10.0,
+                column_tolerance=20.0,
+            )
+
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0][1], "full_page")
+
+    def test_table_region_bboxes_filters_non_table_regions(self) -> None:
+        extractor = PdfPlumberExtractor(config=build_extraction_config(layout_analysis="auto"))
+        page_layout = PageLayout(
+            page_number=1,
+            layout_type="structured_table",
+            confidence=0.8,
+            regions=[
+                LayoutRegion(kind="table", bbox=(0, 0, 100, 100), confidence=0.9),
+                LayoutRegion(kind="text_block", bbox=(10, 10, 20, 20), confidence=0.7),
+            ],
+        )
+        boxes = extractor._table_region_bboxes(page_layout)
+        self.assertEqual(boxes, [(0, 0, 100, 100)])
 
     def test_page_strategy_hints_fall_back_to_config_defaults(self) -> None:
         extractor = PdfPlumberExtractor(config=build_extraction_config())
